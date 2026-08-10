@@ -1,0 +1,54 @@
+services:
+
+  db:
+    image: postgres:15
+    container_name: wallet_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: walletservice
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  db-test:
+    image: postgres:15
+    container_name: wallet_db_test
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: walletservice_test
+    ports:
+      - "5433:5432"
+
+  app:
+    build: .
+    command: >
+      sh -c "alembic upgrade head && 
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    container_name: wallet_app
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/walletservice
+    volumes:
+      - .:/app
+
+  tests:
+    build: .
+    command: python3 -m pytest tests
+    volumes:
+      - .:/app
+    depends_on:
+      - db-test
+    environment:
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:password@db-test:5432/walletservice_test
+
+
+volumes:
+  postgres_data:
